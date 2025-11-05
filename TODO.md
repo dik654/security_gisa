@@ -2242,3 +2242,475 @@ NVD: National Vulnerability Database
 4. **Act**: 침해사고 대응, 포렌식, 법령 준수
 
 **정보보안기사 실기 합격을 응원합니다! 🎉**
+
+---
+
+# 📜 국가정보보안기본지침 & KISA 가이드라인 (2024 최신)
+
+## Part 18. 국가정보보안기본지침 (2023.1.31 개정)
+
+### 18.1 법적 근거
+- **전자정부법 제69조**: 정보통신망 및 정보시스템 보호
+- **국가사이버안전관리규정**: 국가 사이버안전 관리체계
+- **적용 대상**: 국가 및 공공기관
+
+### 18.2 암호화 요구사항 🔴 공공기관 필수
+
+#### 암호알고리즘 검증 (국정원 KCMVP)
+```
+공공기관은 국정원 검증필 암호모듈만 사용 가능
+```
+
+**검증 대상 암호알고리즘 (🔴 국가기관 필수)**
+- **블록암호**: ARIA, SEED, LEA, HIGHT
+- **해시함수**: HAS-160, SHA-224/256/384/512
+- **난수생성기**: CTR_DRBG, Hash_DRBG, HMAC_DRBG
+- **메시지인증코드**: HMAC, CMAC
+
+#### 국산 암호 우선 사용
+```
+공공기관 정보통신망: SEED 또는 ARIA 우선
+- SEED: 128비트 키, 128비트 블록, 16라운드
+- ARIA: 128/192/256비트 키, 128비트 블록
+- LEA: 경량 암호 (IoT, 모바일)
+- HIGHT: 경량 암호 (RFID, USN)
+```
+
+#### 무선랜 암호화 기준
+```
+WPA2 이상, 256비트 이상 암호화 필수
+- WPA2: AES-CCMP (권장)
+- WPA3: SAE (최신 표준)
+```
+
+### 18.3 접근통제 요구사항
+
+#### 계정 관리
+- 불필요한 계정 즉시 삭제
+- 공용 계정 사용 금지
+- 관리자 계정 별도 관리
+- 계정 생성/변경/삭제 기록 3년 보관
+
+#### 접근 권한
+- 인가된 사용자만 접근 허용
+- 최소권한 원칙 적용
+- 직무 분리 원칙 준수
+
+### 18.4 보안관제 요구사항
+
+#### 보안관제 정의
+```
+실시간 사이버 공격 탐지, 분석, 대응 활동
+```
+
+#### 보안관제센터 구성요소
+- 전문 인력 (24/7 운영)
+- 보안관제 시스템 (SIEM, IDS/IPS)
+- 침해사고 대응 절차
+
+#### 로그 관리
+- 접속기록 1년 이상 보존
+- 접속기록 월 1회 이상 점검
+- 로그 위변조 방지 조치
+
+### 18.5 정보시스템 보안
+
+#### 서버 보안
+- OS 및 응용프로그램 최신 패치 적용
+- 불필요한 서비스 중지
+- 보안 설정 점검 (월 1회 이상)
+
+#### 네트워크 보안
+- 방화벽 운영 (Deny All, Allow Specific)
+- 네트워크 구간 분리 (DMZ 구성)
+- VPN 사용 시 암호화 통신
+
+---
+
+## Part 19. KISA 취약점 점검 가이드 (실기 빈출!)
+
+### 19.1 주요정보통신기반시설 기술적 취약점 분석·평가 가이드
+
+#### 적용 대상 시스템 (8개 분야)
+1. Unix/Linux 서버
+2. Windows 서버
+3. 보안장비 (방화벽, IPS 등)
+4. 네트워크 장비 (라우터, 스위치)
+5. 제어시스템 (SCADA 등)
+6. PC
+7. DBMS
+8. Web 애플리케이션
+
+### 19.2 Unix/Linux 취약점 점검 (72개 항목)
+
+#### 1. 계정 관리 (기본 5개, 선택 90개)
+
+**U-01. root 계정 원격 접속 제한 🔴 필수**
+```bash
+# 점검 내용
+/etc/securetty 파일 확인
+SSH 설정: PermitRootLogin no
+
+# 조치 방법
+vi /etc/ssh/sshd_config
+PermitRootLogin no
+systemctl restart sshd
+```
+
+**U-02. 패스워드 복잡성 설정**
+```bash
+# 점검 내용
+/etc/login.defs
+PASS_MIN_LEN 8 이상
+PASS_MAX_DAYS 90 이하
+PASS_MIN_DAYS 1 이상
+
+# PAM 설정
+/etc/pam.d/system-auth
+password requisite pam_cracklib.so minlen=8 lcredit=-1 ucredit=-1 dcredit=-1 ocredit=-1
+```
+
+**U-03. 계정 잠금 임계값 설정**
+```bash
+# 5회 실패 시 계정 잠금
+/etc/pam.d/system-auth
+auth required pam_faillock.so deny=5 unlock_time=600
+```
+
+**U-04. 패스워드 파일 보호**
+```bash
+# /etc/passwd 파일 두 번째 필드가 'x'인지 확인
+# /etc/shadow 파일 권한 000 또는 400
+chmod 400 /etc/shadow
+```
+
+**U-05. 불필요한 계정 제거**
+```bash
+# 불필요한 기본 계정 삭제
+userdel lp
+userdel uucp
+userdel nuucp
+```
+
+#### 2. 파일 및 디렉토리 관리 (기본 18개, 선택 113개)
+
+**U-06. 파일 및 디렉토리 소유자 설정**
+```bash
+# 소유자 없는 파일 검색
+find / -nouser -o -nogroup
+
+# 소유자 설정
+chown root:root /path/to/file
+```
+
+**U-07. /etc/passwd 파일 소유자 및 권한 설정**
+```bash
+# 소유자: root, 권한: 644
+ls -l /etc/passwd
+chown root /etc/passwd
+chmod 644 /etc/passwd
+```
+
+**U-08. /etc/shadow 파일 소유자 및 권한 설정**
+```bash
+# 소유자: root, 권한: 400 또는 000
+chown root /etc/shadow
+chmod 400 /etc/shadow
+```
+
+**U-09. 홈 디렉토리 권한 설정**
+```bash
+# 소유자만 쓰기 권한 (755 이하)
+chmod 755 /home/username
+```
+
+**U-10. 숨겨진 파일 및 디렉토리 검색**
+```bash
+# . 으로 시작하는 파일 검색
+find / -name ".*" -type f
+```
+
+#### 3. 서비스 관리
+
+**U-11. r 계열 서비스 비활성화 🔴 필수**
+```bash
+# rlogin, rsh, rexec 비활성화
+systemctl disable rlogin
+systemctl disable rsh
+systemctl disable rexec
+```
+
+**U-12. 불필요한 Cron 파일 삭제**
+```bash
+# cron.deny 파일 삭제
+rm /etc/cron.deny
+
+# cron.allow 파일에 허용 사용자만 등록
+echo "root" > /etc/cron.allow
+chmod 640 /etc/cron.allow
+```
+
+**U-13. Sendmail 버전 정보 숨김**
+```bash
+# /etc/mail/sendmail.cf
+O SmtpGreetingMessage=$j Sendmail; $b
+```
+
+#### 4. 패치 관리
+
+**U-14. 최신 보안 패치 적용**
+```bash
+# CentOS/RHEL
+yum update
+
+# Ubuntu/Debian
+apt update && apt upgrade
+```
+
+#### 5. 로그 관리
+
+**U-15. 로그 파일 권한 설정**
+```bash
+# /var/log/* 파일 권한 640 이하
+chmod 640 /var/log/messages
+chmod 640 /var/log/secure
+```
+
+**U-16. 로그 보관 기간 설정**
+```bash
+# /etc/logrotate.conf
+rotate 12    # 12개월 보관
+weekly       # 주 단위 순환
+```
+
+### 19.3 Windows 취약점 점검
+
+#### 1. 계정 관리
+
+**W-01. Administrator 계정 이름 변경**
+```
+제어판 → 사용자 계정 → Administrator 이름 변경
+```
+
+**W-02. Guest 계정 비활성화 🔴 필수**
+```cmd
+net user guest /active:no
+```
+
+**W-03. 계정 잠금 임계값 설정**
+```
+secpol.msc → 계정 정책 → 계정 잠금 정책
+- 계정 잠금 임계값: 5회 이하
+- 계정 잠금 기간: 60분
+- 계정 잠금 다시 설정: 60분
+```
+
+**W-04. 패스워드 정책 설정**
+```
+- 암호 최소 길이: 8자 이상
+- 암호 최대 사용 기간: 60일 이하
+- 암호 복잡성 요구: 사용
+```
+
+#### 2. 서비스 관리
+
+**W-05. 불필요한 서비스 중지**
+```
+services.msc에서 다음 서비스 중지/비활성화:
+- Telnet
+- FTP
+- TFTP
+- SNMP (불필요 시)
+```
+
+#### 3. 보안 관리
+
+**W-06. 로그 설정**
+```
+eventvwr.msc → 보안 로그
+- 최대 로그 크기: 10MB 이상
+- 최대 크기 도달 시: 로그 덮어쓰지 않음
+```
+
+**W-07. 원격 데스크톱 보안**
+```
+- NLA (Network Level Authentication) 사용
+- 암호화 수준: 높음
+```
+
+### 19.4 웹 애플리케이션 취약점 점검
+
+#### KISA 웹 취약점 점검 항목
+
+**W-01. SQL Injection**
+```
+입력값 검증, Prepared Statement 사용
+```
+
+**W-02. 크로스사이트 스크립팅 (XSS)**
+```
+출력값 인코딩, HttpOnly 쿠키
+```
+
+**W-03. CSRF**
+```
+CSRF Token 검증
+```
+
+**W-04. 데이터 평문 전송**
+```
+HTTPS 사용, 중요 데이터 암호화 전송
+```
+
+**W-05. 쿠키 변조**
+```
+Secure, HttpOnly, SameSite 속성 설정
+```
+
+### 19.5 DBMS 취약점 점검
+
+#### DB-01. 기본 계정 삭제/비활성화
+```sql
+-- Oracle
+DROP USER SCOTT CASCADE;
+
+-- MySQL
+DROP USER ''@'localhost';
+```
+
+#### DB-02. 패스워드 복잡성 설정
+```sql
+-- Oracle
+ALTER PROFILE DEFAULT LIMIT
+  PASSWORD_LIFE_TIME 90
+  FAILED_LOGIN_ATTEMPTS 5
+  PASSWORD_LOCK_TIME 1;
+```
+
+#### DB-03. 불필요한 권한 제거
+```sql
+-- 최소권한 원칙
+REVOKE ALL ON *.* FROM 'user'@'localhost';
+GRANT SELECT, INSERT, UPDATE ON db.table TO 'user'@'localhost';
+```
+
+---
+
+## Part 20. KISA 추가 보안 가이드라인
+
+### 20.1 클라우드 보안 점검 가이드 (2020.12)
+
+#### 클라우드 환경별 점검사항
+- **IaaS**: 가상머신 보안, 네트워크 격리
+- **PaaS**: 애플리케이션 보안, API 인증
+- **SaaS**: 계정 관리, 데이터 암호화
+
+### 20.2 개인정보 암호화 가이드
+
+#### 암호화 대상 (🔴 법적 의무)
+```
+일방향 암호화 (해시):
+- 비밀번호 → SHA-256 이상
+- 바이오정보 → SHA-256 이상
+
+양방향 암호화 (대칭키):
+- 주민등록번호 → AES, SEED, ARIA
+- 여권번호, 운전면허번호 → AES, SEED, ARIA
+- 외국인등록번호 → AES, SEED, ARIA
+- 신용카드번호 → AES, SEED, ARIA
+- 계좌번호 → AES, SEED, ARIA
+```
+
+#### 암호화 키 관리
+- 키 생성: 안전한 난수 생성기 사용
+- 키 저장: 암호화된 상태로 별도 저장
+- 키 교체: 주기적 교체 (1년 이내)
+- 키 폐기: 안전한 삭제
+
+### 20.3 패스워드 선택 및 이용 가이드 (KISA)
+
+#### 안전한 패스워드 기준
+```
+길이: 10자 이상 권장 (최소 8자)
+복잡성: 영문 대소문자 + 숫자 + 특수문자 조합
+교체 주기: 6개월 이내
+재사용 금지: 이전 3개 패스워드 재사용 금지
+```
+
+#### 패스워드 저장 방법
+```
+PBKDF2, bcrypt, scrypt, Argon2 사용
+Salt 추가 (사용자마다 다른 Salt)
+반복 횟수: 10,000회 이상 (KISA 권장)
+```
+
+---
+
+# 🎯 국가기관/공공기관 실기 시험 추가 체크리스트
+
+## 🔴 국가정보보안기본지침 필수 암기
+
+### 1. 검증필 암호알고리즘
+```
+블록암호: ARIA, SEED, LEA, HIGHT (국정원 검증 필수)
+해시함수: HAS-160, SHA-224/256/384/512
+공공기관은 국산 암호 (SEED, ARIA) 우선 사용
+```
+
+### 2. 무선랜 암호화
+```
+WPA2 이상, 256비트 이상
+WPA3 권장 (SAE 인증)
+```
+
+### 3. 접근통제
+```
+불필요한 계정 삭제
+공용 계정 사용 금지
+계정 기록 3년 보관
+```
+
+### 4. 보안관제
+```
+24/7 실시간 모니터링
+SIEM 구축
+침해사고 대응 절차 수립
+```
+
+## 🔴 KISA 취약점 점검 필수 항목
+
+### Unix/Linux (Top 10)
+```
+U-01: root 원격 접속 제한 (PermitRootLogin no)
+U-02: 패스워드 복잡성 (minlen=8)
+U-03: 계정 잠금 (deny=5)
+U-04: /etc/shadow 권한 (400)
+U-07: /etc/passwd 권한 (644)
+U-11: r 계열 서비스 비활성화
+U-14: 최신 패치 적용
+U-15: 로그 파일 권한 (640)
+```
+
+### Windows (Top 10)
+```
+W-02: Guest 계정 비활성화
+W-03: 계정 잠금 임계값 (5회)
+W-04: 패스워드 정책 (8자, 60일)
+W-05: 불필요한 서비스 중지 (Telnet, FTP)
+W-06: 보안 로그 설정
+W-07: 원격 데스크톱 NLA 사용
+```
+
+### 웹 애플리케이션 (Top 5)
+```
+SQL Injection 방어
+XSS 방어 (출력 인코딩)
+CSRF Token 검증
+HTTPS 사용
+쿠키 보안 속성 (HttpOnly, Secure, SameSite)
+```
+
+---
+
+**✅ 국가정보보안기본지침 & KISA 가이드라인 반영 완료!**
+
