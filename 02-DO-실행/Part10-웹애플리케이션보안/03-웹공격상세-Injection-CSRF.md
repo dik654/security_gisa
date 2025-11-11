@@ -836,3 +836,401 @@ dir /r 확인 ★★
 **✅ SQL Injection 방어는 Prepared Statement가 핵심!**
 **✅ CSRF Token과 SameSite Cookie는 필수 조합!**
 **✅ HttpOnly 쿠키는 XSS 쿠키 탈취 방어의 최우선!**
+
+---
+
+## 8. XPath/XQuery 인젝션 (XML Injection) ★★
+
+### 문제 (2024년 기출)
+```
+다음 중 XPath 인젝션, XQuery 인젝션에 대한 설명은?
+또는 XML 인젝션 공격에 대해 설명하시오
+```
+
+### XPath 인젝션 (XPath Injection) ★★★
+
+**정의**:
+```
+XML 문서를 조회하는 XPath 쿼리에 악의적인 입력을 삽입하여
+인증을 우회하거나 민감한 데이터를 탈취하는 공격
+```
+
+**XML 문서 예시**:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<users>
+    <user>
+        <username>admin</username>
+        <password>admin123</password>
+        <role>administrator</role>
+    </user>
+    <user>
+        <username>guest</username>
+        <password>guest123</password>
+        <role>user</role>
+    </user>
+</users>
+```
+
+**정상 XPath 쿼리**: ★★★
+```xpath
+// 사용자 인증 쿼리
+//users/user[username='admin' and password='admin123']
+
+결과:
+<user>
+    <username>admin</username>
+    <password>admin123</password>
+    <role>administrator</role>
+</user>
+```
+
+**XPath 인젝션 공격**: ★★★
+
+**공격 1: 인증 우회** (가장 자주 출제!) ★★★
+```
+사용자 입력:
+username: admin' or '1'='1
+password: (아무거나)
+
+생성된 XPath 쿼리:
+//users/user[username='admin' or '1'='1' and password='xxx']
+
+결과:
+'1'='1'은 항상 참 (True)
+→ admin 계정으로 로그인 성공! ★★★
+
+또는:
+username: ' or 1=1 or ''='
+password: ' or 1=1 or ''='
+
+생성된 쿼리:
+//users/user[username='' or 1=1 or ''='' and password='' or 1=1 or ''='']
+→ 첫 번째 사용자로 로그인
+```
+
+**공격 2: 전체 데이터 조회** ★★
+```
+입력:
+username: ' or 1=1]/*[contains(text(),'
+
+생성된 쿼리:
+//users/user[username='' or 1=1]/*[contains(text(),'')]
+
+결과:
+→ 모든 사용자 정보 노출
+```
+
+**시험 출제 포인트**: ★★★
+```
+문제: "XPath 인젝션, XQuery 인젝션, XML 인젝션에 대한 설명은?"
+
+핵심 답안:
+1. 정의: XML 문서 조회 쿼리에 악의적 입력 삽입
+
+2. 공격 원리:
+   - SQL Injection과 유사 ★★★
+   - ' or '1'='1 같은 조작
+   - 인증 우회
+
+3. 대상: XML 데이터베이스를 사용하는 애플리케이션
+
+4. 피해:
+   - 인증 우회 ★★★
+   - 데이터 탈취
+   - 권한 상승
+```
+
+**SQL Injection vs XPath Injection**: ★★★
+
+| 구분 | SQL Injection | XPath Injection |
+|------|--------------|----------------|
+| **대상 DB** | 관계형 DB (MySQL, Oracle) | XML 데이터베이스 |
+| **쿼리 언어** | SQL | XPath/XQuery |
+| **공격 패턴** | ' or 1=1-- | ' or '1'='1 |
+| **주석** | -- , /* */ | 없음 (XML 주석) |
+| **방어** | Prepared Statement | 입력 검증, 파라미터화 |
+
+**XPath Injection 공격 예시**: ★★★
+
+**취약한 코드 (PHP)**:
+```php
+<?php
+// 취약한 코드
+$username = $_POST['username'];
+$password = $_POST['password'];
+
+$xml = simplexml_load_file('users.xml');
+
+// 취약한 XPath 쿼리
+$query = "//users/user[username='$username' and password='$password']";
+$result = $xml->xpath($query);
+
+if ($result) {
+    echo "로그인 성공!";
+} else {
+    echo "로그인 실패";
+}
+?>
+```
+
+**공격**:
+```
+POST /login.php
+username=admin' or '1'='1
+password=anything
+
+생성된 쿼리:
+//users/user[username='admin' or '1'='1' and password='anything']
+
+→ 인증 우회 성공! ★★★
+```
+
+**방어 방법**: ★★★
+
+**1. 입력 검증 및 필터링** ★★★
+```php
+<?php
+// 안전한 코드
+$username = $_POST['username'];
+$password = $_POST['password'];
+
+// 특수 문자 필터링
+$username = preg_replace("/[^a-zA-Z0-9]/", "", $username);
+$password = preg_replace("/[^a-zA-Z0-9]/", "", $password);
+
+// 또는 블랙리스트 필터
+$blacklist = array("'", '"', 'or', 'and', '=', '<', '>');
+$username = str_replace($blacklist, "", $username);
+?>
+```
+
+**2. 파라미터화된 쿼리** ★★★
+```php
+<?php
+// XPath 파라미터 사용 (PHP DOM)
+$dom = new DOMDocument();
+$dom->load('users.xml');
+$xpath = new DOMXPath($dom);
+
+// 파라미터 바인딩 (안전)
+$query = "//users/user[username=\$username and password=\$password]";
+$xpath->registerPhpFunctions();
+$xpath->registerNamespace('fn', 'http://www.w3.org/2005/xpath-functions');
+
+// 변수로 쿼리 실행 (안전)
+$result = $xpath->query("//users/user[username='".htmlspecialchars($username)."']");
+?>
+```
+
+**3. HTML 엔티티 인코딩** ★★
+```php
+<?php
+// 특수 문자 이스케이프
+$username = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
+$password = htmlspecialchars($password, ENT_QUOTES, 'UTF-8');
+
+// ' → &apos;
+// " → &quot;
+// < → &lt;
+// > → &gt;
+?>
+```
+
+**4. 화이트리스트 검증** ★★★
+```php
+<?php
+// 허용된 문자만 통과
+if (!preg_match('/^[a-zA-Z0-9]{3,20}$/', $username)) {
+    die("유효하지 않은 사용자명");
+}
+?>
+```
+
+**5. XML 데이터베이스 대신 RDBMS 사용**
+```
+가능하면:
+- MySQL, PostgreSQL 등 관계형 DB 사용
+- Prepared Statement로 SQL Injection 방어
+```
+
+---
+
+### XQuery 인젝션 (XQuery Injection) ★★
+
+**정의**:
+```
+XQuery를 사용하는 XML 데이터베이스에서
+악의적인 쿼리를 삽입하는 공격
+```
+
+**XQuery란?**:
+```
+XML 문서를 조회하고 변환하는 쿼리 언어
+XPath보다 강력 (FLWOR 표현식 지원)
+
+FLWOR:
+- For: 반복
+- Let: 변수 할당
+- Where: 조건
+- Order by: 정렬
+- Return: 반환
+```
+
+**정상 XQuery**:
+```xquery
+for $user in doc("users.xml")//user
+where $user/username = "admin" and $user/password = "admin123"
+return $user
+```
+
+**XQuery 인젝션 공격**: ★★★
+```
+입력:
+username: admin" or "1"="1
+password: (아무거나)
+
+생성된 쿼리:
+for $user in doc("users.xml")//user
+where $user/username = "admin" or "1"="1" and $user/password = "xxx"
+return $user
+
+→ "1"="1"은 항상 참
+→ 인증 우회 ★★★
+```
+
+**방어 방법**: XPath와 동일
+```
+1. 입력 검증 및 필터링 ★★★
+2. 파라미터화된 쿼리
+3. 특수 문자 이스케이프
+4. 화이트리스트 검증
+```
+
+---
+
+### XML 인젝션 (XML Injection) ★★
+
+**정의**:
+```
+XML 문서 생성 시 사용자 입력을 적절히 검증하지 않아
+XML 구조를 변조하는 공격
+```
+
+**취약한 코드**:
+```php
+<?php
+// 취약한 XML 생성
+$username = $_POST['username'];
+$email = $_POST['email'];
+
+$xml = "<?xml version='1.0'?>
+<user>
+    <username>$username</username>
+    <email>$email</email>
+    <role>user</role>
+</user>";
+
+file_put_contents('user.xml', $xml);
+?>
+```
+
+**XML 인젝션 공격**: ★★★
+```
+입력:
+username: admin</username><role>administrator</role><username>hacked
+
+생성된 XML:
+<?xml version='1.0'?>
+<user>
+    <username>admin</username><role>administrator</role><username>hacked</username>
+    <email>test@test.com</email>
+    <role>user</role>
+</user>
+
+→ role이 administrator로 변조됨! ★★★
+```
+
+**XXE (XML External Entity) 공격**: ★★★
+```xml
+악의적 XML 입력:
+<?xml version="1.0"?>
+<!DOCTYPE foo [
+    <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<user>
+    <username>&xxe;</username>
+</user>
+
+→ /etc/passwd 파일 내용 노출 ★★★
+```
+
+**방어 방법**: ★★★
+```php
+<?php
+// 안전한 XML 생성
+$username = htmlspecialchars($username, ENT_XML1, 'UTF-8');
+$email = htmlspecialchars($email, ENT_XML1, 'UTF-8');
+
+// 또는 DOM 사용 (권장)
+$dom = new DOMDocument('1.0', 'UTF-8');
+$user = $dom->createElement('user');
+$usernameNode = $dom->createElement('username');
+$usernameNode->appendChild($dom->createTextNode($username));  // 자동 이스케이프
+$user->appendChild($usernameNode);
+
+// XXE 방어
+libxml_disable_entity_loader(true);  // 외부 엔티티 차단 ★★★
+?>
+```
+
+---
+
+## 🔥 시험 최종 정리: XPath/XQuery/XML 인젝션 ★★★
+
+### 공통점
+```
+1. XML 데이터 대상 공격
+2. 사용자 입력 미검증 시 발생
+3. SQL Injection과 유사한 패턴 ★★★
+   - ' or '1'='1
+   - ' or 1=1
+```
+
+### 차이점
+```
+XPath Injection:
+- XPath 쿼리 조작
+- 인증 우회 ★★★
+
+XQuery Injection:
+- XQuery (FLWOR) 조작
+- XPath보다 강력
+
+XML Injection:
+- XML 구조 변조 ★★★
+- XXE 공격 가능
+```
+
+### 방어 (공통) ★★★
+```
+1. 입력 검증 및 필터링 ★★★
+   - 특수 문자 제거
+   - 화이트리스트 검증
+
+2. 파라미터화/이스케이프
+   - htmlspecialchars() ★★
+   - DOM API 사용
+
+3. XXE 방어 (XML 인젝션)
+   - libxml_disable_entity_loader(true) ★★★
+   - 외부 엔티티 비활성화
+```
+
+### 암기 팁
+```
+"XPath = XML 경로 쿼리"
+"' or '1'='1 패턴은 SQL과 동일" ★★★
+"XML 인젝션 = 구조 변조 + XXE" ★★★
+"방어 = 입력 필터링 + DOM API" ★★★
+```
